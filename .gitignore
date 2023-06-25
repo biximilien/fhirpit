@@ -3,3 +3,5 @@ data/*.txt
 !data
 
 bin/*
+!bin/.gitkeep
+!bin

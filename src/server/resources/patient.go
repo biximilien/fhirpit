@@ -10,7 +10,7 @@ import (
 )
 
 func PatientHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	SetFHIRHeaders(w, r)
 	// create a new patient
 	patient := &patient_go_proto.Patient{
 		Active: &datatypes_go_proto.Boolean{

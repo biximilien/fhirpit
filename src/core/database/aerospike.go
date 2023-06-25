@@ -1,10 +1,12 @@
-package core
+package database
 
 import (
+	"errors"
 	"log"
 	"strconv"
 	"time"
 
+	"dev.bonfhir/fhirpit/src/core"
 	aero "github.com/aerospike/aerospike-client-go/v6"
 	asl "github.com/aerospike/aerospike-client-go/v6/logger"
 )
@@ -22,11 +24,10 @@ type AerospikeConfiguration struct {
 
 type AerospikeDatabase struct {
 	AerospikeConfiguration
+	adapter *aero.Client
 }
 
 var (
-	// Aerospike client instance
-	client *aero.Client
 	// Base policy for aeropike
 	basePolicy *aero.BasePolicy
 	// Batch operation policy
@@ -37,20 +38,29 @@ var (
 	clientPolicy *aero.ClientPolicy
 )
 
-func InitializeAerospike(config AerospikeConfiguration) {
+func (db *AerospikeDatabase) GetAdapter() interface{} {
+	return db.adapter
+}
+
+func (db *AerospikeDatabase) SetAdapter(adapter interface{}) {
+	db.adapter = adapter.(*aero.Client)
+}
+
+func InitializeAerospike(config AerospikeConfiguration) (DatabaseClient, error) {
 	// Simple singleton
 	if client != nil {
-		log.Fatal("Aerospike client already initialized")
+		return nil, errors.New("database client already initialized")
 	}
+	client = &AerospikeDatabase{}
 	// Tell aerospike database to use json tags for serialization
 	aero.SetAerospikeTag("json")
 	// Create a new aerospike client
-	lclient, err := aero.NewClient(config.Host, config.Port)
+	adapter, err := aero.NewClient(config.Host, config.Port)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	// Store our client in the singleton instance
-	client = lclient
+	client.SetAdapter(adapter)
 	// Create our policies
 	basePolicy = aero.NewPolicy()
 	basePolicy.SocketTimeout = time.Duration(config.DefaultPolicy.SocketTimeout) * time.Millisecond
@@ -62,21 +72,23 @@ func InitializeAerospike(config AerospikeConfiguration) {
 	batchPolicy = aero.NewBatchPolicy()
 	batchPolicy.BasePolicy = *basePolicy
 	clientPolicy = aero.NewClientPolicy()
-	clientPolicy.ConnectionQueueSize = 2
+	clientPolicy.ConnectionQueueSize = 100
 	clientPolicy.LimitConnectionsToQueueSize = true
 
-	client.DefaultPolicy = basePolicy
-	client.DefaultBatchPolicy = batchPolicy
-	client.DefaultWritePolicy = writePolicy
-	client.DefaultBatchPolicy.GetBasePolicy().ExitFastOnExhaustedConnectionPool = true
-	client.DefaultPolicy.GetBasePolicy().ExitFastOnExhaustedConnectionPool = true
-	client.DefaultWritePolicy.GetBasePolicy().ExitFastOnExhaustedConnectionPool = true
+	adapter.DefaultPolicy = basePolicy
+	adapter.DefaultBatchPolicy = batchPolicy
+	adapter.DefaultWritePolicy = writePolicy
+	adapter.DefaultBatchPolicy.GetBasePolicy().ExitFastOnExhaustedConnectionPool = true
+	adapter.DefaultPolicy.GetBasePolicy().ExitFastOnExhaustedConnectionPool = true
+	adapter.DefaultWritePolicy.GetBasePolicy().ExitFastOnExhaustedConnectionPool = true
 
 	asl.Logger.SetLogger(config.Logger)
 	asl.Logger.SetLevel(asl.DEBUG)
+
+	return client, nil
 }
 
-func PutSnomedDescription(record SnomedDescription) error {
+func (db AerospikeDatabase) PutSnomedDescription(record core.SnomedDescription) error {
 	key, err := aero.NewKey("terminology", "snomed_description", record.Id)
 	if err != nil {
 		return err
@@ -94,10 +106,10 @@ func PutSnomedDescription(record SnomedDescription) error {
 
 	// INSERT INTO terminology.snomed_description (PK, effectiveTime, active, moduleId, conceptId, languageCode, typeId, term, caseSignificanceId) VALUES (1, "20201212", "1", "asd", "asd", "asd", "asd", "asd", "asd")
 
-	return client.PutBins(writePolicy, key, effectiveTime, active, moduleId, conceptId, languageCode, typeId, term, caseSignificanceId)
+	return db.adapter.PutBins(writePolicy, key, effectiveTime, active, moduleId, conceptId, languageCode, typeId, term, caseSignificanceId)
 }
 
-func GetSnomedDescription(conceptId string) []SnomedDescription {
+func (db AerospikeDatabase) GetSnomedDescription(conceptId string) ([]core.SnomedDescription, error) {
 
 	statement := aero.NewStatement("terminology", "snomed_description", "cid", "term")
 	statement.Filter = aero.NewEqualFilter("cid", conceptId)
@@ -105,47 +117,47 @@ func GetSnomedDescription(conceptId string) []SnomedDescription {
 	queryPolicy := aero.NewQueryPolicy()
 	queryPolicy.MaxRecords = 20
 
-	descriptions := []SnomedDescription{}
+	descriptions := []core.SnomedDescription{}
 
-	recset, err := client.Query(queryPolicy, statement)
+	recset, err := db.adapter.Query(queryPolicy, statement)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	for records := range recset.Results() {
 		if records.Err != nil {
-			log.Fatal(records.Err.Error())
+			return nil, records.Err
 		}
 		if records != nil {
 			id, err := strconv.Atoi(records.Record.Key.Value().String())
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 			efftime, err := strconv.Atoi(records.Record.Bins["efftime"].(string))
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 			active := records.Record.Bins["active"].(string) == "1"
 			modid, err := strconv.ParseUint(records.Record.Bins["modid"].(string), 10, 64)
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 			cid, err := strconv.Atoi(records.Record.Bins["cid"].(string))
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 			lcode := records.Record.Bins["lcode"].(string)
 			typeid, err := strconv.ParseUint(records.Record.Bins["typeid"].(string), 10, 64)
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 			term := records.Record.Bins["term"].(string)
 			csid, err := strconv.ParseUint(records.Record.Bins["csid"].(string), 10, 64)
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 
-			descriptions = append(descriptions, SnomedDescription{
+			descriptions = append(descriptions, core.SnomedDescription{
 				Id:                 id,
 				EffectiveTime:      efftime,
 				Active:             active,
@@ -159,5 +171,10 @@ func GetSnomedDescription(conceptId string) []SnomedDescription {
 		}
 	}
 
-	return descriptions
+	return descriptions, nil
+}
+
+func (db AerospikeDatabase) Close() {
+	// Close the connection
+	db.adapter.Close()
 }

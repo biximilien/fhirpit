@@ -13,26 +13,26 @@ import (
 	"github.com/google/fhir/go/proto/google/fhir/proto/r4/core/resources/parameters_go_proto"
 )
 
-type CodeSystemLookupOperation struct {
-	Response CodeSystemLookupOperationResponse
+type CodeSystemFindMatchesOperation struct {
+	Response CodeSystemFindMatchesOperationResponse
 	Records  []core.SnomedDescription
 	client   database.DatabaseClient
 }
 
-type CodeSystemLookupOperationResponse struct {
+type CodeSystemFindMatchesOperationResponse struct {
 	ResourceType string                          `json:"resourceType,omitempty"`
 	Parameters   *parameters_go_proto.Parameters `json:"parameter,omitempty"`
 }
 
-func NewCodeSystemLookupOperation(client database.DatabaseClient) *CodeSystemLookupOperation {
-	return &CodeSystemLookupOperation{
-		Response: CodeSystemLookupOperationResponse{},
+func NewCodeSystemFindMatchesOperation(client database.DatabaseClient) *CodeSystemFindMatchesOperation {
+	return &CodeSystemFindMatchesOperation{
+		Response: CodeSystemFindMatchesOperationResponse{},
 		client:   client,
 	}
 }
 
 // CodeSystemHandler handles requests for the CodeSystem resource
-func (op CodeSystemLookupOperation) CodeSystemLookupOperationHandler(w http.ResponseWriter, r *http.Request) {
+func (op CodeSystemFindMatchesOperation) CodeSystemFindMatchesOperationHandler(w http.ResponseWriter, r *http.Request) {
 	resources.SetFHIRHeaders(w, r)
 
 	// code, err := strconv.Atoi(r.URL.Query().Get("code"))

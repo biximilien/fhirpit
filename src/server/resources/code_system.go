@@ -9,15 +9,11 @@ import (
 	"github.com/google/fhir/go/proto/google/fhir/proto/r4/core/resources/code_system_go_proto"
 )
 
-type CodeSystem struct {
-	code_system *code_system_go_proto.CodeSystem
-}
-
 // CodeSystemHandler handles requests for the CodeSystem resource
-func (response CodeSystem) CodeSystemHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func CodeSystemHandler(w http.ResponseWriter, r *http.Request) {
+	SetFHIRHeaders(w, r)
 
-	response.code_system = &code_system_go_proto.CodeSystem{
+	code_system := &code_system_go_proto.CodeSystem{
 		Name: &datatypes_go_proto.String{
 			Value: "Test Code System",
 		},
@@ -25,7 +21,7 @@ func (response CodeSystem) CodeSystemHandler(w http.ResponseWriter, r *http.Requ
 			Value: "http://test.com",
 		},
 	}
-	data, err := json.Marshal(response)
+	data, err := json.Marshal(code_system)
 	if err != nil {
 		fmt.Println("error:", err)
 	}
