@@ -49,7 +49,10 @@ func main() {
 		records = core.ReadTextFile("./data/sct2_Description_Full-en_US1000124_20230301.txt")
 
 		for _, record := range records {
-			client.PutSnomedDescription(record)
+			err := client.PutSnomedDescription(record)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 	} else {
@@ -69,13 +72,20 @@ func main() {
 }
 
 func initializeDatabase() (database.DatabaseClient, error) {
-	configuration := database.AerospikeConfiguration{
+	// configuration := database.AerospikeConfiguration{
+	// 	Host:   "localhost",
+	// 	Port:   3000,
+	// 	Logger: logger,
+	// }
+	// configuration.DefaultPolicy.SocketTimeout = 10000
+	// configuration.DefaultPolicy.MaxRetries = 3
+	// configuration.DefaultPolicy.SleepBetweenRetries = 1000
+	// return database.InitializeAerospike(configuration)
+	configuration := database.RedisConfiguration{
 		Host:   "localhost",
-		Port:   3000,
+		Port:   6379,
 		Logger: logger,
 	}
-	configuration.DefaultPolicy.SocketTimeout = 10000
-	configuration.DefaultPolicy.MaxRetries = 3
-	configuration.DefaultPolicy.SleepBetweenRetries = 1000
-	return database.InitializeAerospike(configuration)
+
+	return database.InitializeRedis(configuration)
 }
