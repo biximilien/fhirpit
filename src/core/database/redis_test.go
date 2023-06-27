@@ -8,25 +8,22 @@ import (
 	"testing"
 )
 
-func setupAerospike() {
+func setupRedis() {
 	var buf bytes.Buffer
 	logger := log.New(&buf, "logger: ", log.Lshortfile)
 	logger.SetOutput(os.Stdout)
-	configuration := AerospikeConfiguration{
+	configuration := RedisConfiguration{
 		Host:   "localhost",
-		Port:   3000,
+		Port:   6379,
 		Logger: logger,
 	}
-	configuration.DefaultPolicy.SocketTimeout = 10000
-	configuration.DefaultPolicy.MaxRetries = 3
-	configuration.DefaultPolicy.SleepBetweenRetries = 1000
-	InitializeAerospike(configuration)
+	InitializeRedis(configuration)
 }
 
-func BenchmarkAerospikeGetSnomedDescription(b *testing.B) {
+func BenchmarkRedisGetSnomedDescription(b *testing.B) {
 
 	fmt.Println("Setup")
-	setupAerospike() // this require a lot of time
+	setupRedis() // this require a lot of time
 	fmt.Println("Start Test")
 	b.Run("mytest", func(b *testing.B) {
 		b.ResetTimer()

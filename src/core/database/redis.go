@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"strconv"
 
@@ -66,7 +65,6 @@ func (db *RedisDatabase) GetSnomedDescription(conceptId string) ([]core.SnomedDe
 	}
 
 	for _, id := range ids {
-		fmt.Println(id)
 		// get fields
 		recordId, err := db.adapter.HGet(ctx, id, "id").Result()
 		if err != nil {
@@ -100,15 +98,12 @@ func (db *RedisDatabase) GetSnomedDescription(conceptId string) ([]core.SnomedDe
 
 func (db *RedisDatabase) PutSnomedDescription(record core.SnomedDescription) error {
 	ctx := context.Background()
-	log.Printf("PutSnomedDescription: %v\n", record)
 
-	// err := db.adapter.HSet(ctx, strconv.Itoa(record.Id), record.GetMap()).Err()
 	err := db.adapter.HSet(ctx, strconv.Itoa(record.Id), record).Err()
 	if err != nil {
 		return err
 	}
 
-	log.Printf("PutSnomedDescription snomed_description_by_cid: %d\n", record.ConceptId)
 	err = db.adapter.SAdd(ctx, "snomed_description_by_cid:"+strconv.Itoa(record.ConceptId), strconv.Itoa(record.Id)).Err()
 	if err != nil {
 		return err

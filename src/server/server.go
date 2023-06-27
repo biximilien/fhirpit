@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"log"
 	"net/http"
@@ -16,6 +17,11 @@ import (
 var records []core.SnomedDescription
 
 var help = flag.Bool("help", false, "Show help")
+var hostFlag string
+var portFlag int
+var userFlag string
+var passwordFlag string
+var dbTypeFlag string
 var importFlag = false
 
 var buf bytes.Buffer
@@ -24,6 +30,11 @@ var logger *log.Logger
 func main() {
 
 	flag.BoolVar(&importFlag, "import", false, "Import the data")
+	flag.StringVar(&hostFlag, "host", "localhost", "Database host")
+	flag.IntVar(&portFlag, "port", 3000, "Database port")
+	flag.StringVar(&userFlag, "username", "", "Database username")
+	flag.StringVar(&passwordFlag, "password", "", "Database password")
+	flag.StringVar(&dbTypeFlag, "database-type", "aerospike", "Database adapter type")
 	flag.Parse()
 
 	// show usage information
@@ -72,20 +83,33 @@ func main() {
 }
 
 func initializeDatabase() (database.DatabaseClient, error) {
-	// configuration := database.AerospikeConfiguration{
-	// 	Host:   "localhost",
-	// 	Port:   3000,
-	// 	Logger: logger,
-	// }
-	// configuration.DefaultPolicy.SocketTimeout = 10000
-	// configuration.DefaultPolicy.MaxRetries = 3
-	// configuration.DefaultPolicy.SleepBetweenRetries = 1000
-	// return database.InitializeAerospike(configuration)
-	configuration := database.RedisConfiguration{
-		Host:   "localhost",
-		Port:   6379,
+	switch dbTypeFlag {
+	case "aerospike":
+		return initializeAerospike()
+	case "redis":
+		return initializeRedis()
+	default:
+		return nil, errors.New("invalid database type")
+	}
+}
+
+func initializeAerospike() (database.DatabaseClient, error) {
+	configuration := database.AerospikeConfiguration{
+		Host:   hostFlag,
+		Port:   portFlag,
 		Logger: logger,
 	}
+	configuration.DefaultPolicy.SocketTimeout = 10000
+	configuration.DefaultPolicy.MaxRetries = 3
+	configuration.DefaultPolicy.SleepBetweenRetries = 1000
+	return database.InitializeAerospike(configuration)
+}
 
+func initializeRedis() (database.DatabaseClient, error) {
+	configuration := database.RedisConfiguration{
+		Host:   hostFlag,
+		Port:   portFlag,
+		Logger: logger,
+	}
 	return database.InitializeRedis(configuration)
 }
